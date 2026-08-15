@@ -2,7 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { updateFounderInfo } from "./actions";
+import { fetchSimilarAwards } from "@/lib/usaspending";
 import type { MatchConfidence } from "@/generated/prisma/client";
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
 
 // Only MEDIUM/HIGH matches are surfaced here — LOW matches are kept in the
 // database for auditability but aren't confident enough to show a founder.
@@ -56,6 +63,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
   });
 
   if (!business) notFound();
+
+  // Live, on-demand only — never synced/cached (see plan.md's Data storage
+  // budget: USAspending is transaction-scale data, unsuited to the local
+  // Opportunity cache other sources use).
+  const similarAwards = business.naicsCodeGuess ? await fetchSimilarAwards(business.naicsCodeGuess) : [];
 
   const missingFields = FOUNDER_FIELDS.filter((f) => {
     const value = business[f.name];
@@ -151,6 +163,54 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
             </article>
           ))}
         </section>
+
+        {business.naicsCodeGuess && (
+          <section className="mb-12 rounded-lg border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-sm">
+            <h2 className="mb-1 font-medium text-zinc-50">Similar companies funded</h2>
+            <p className="mb-4 text-sm text-zinc-400">
+              Recent federal awards to small businesses in your industry (NAICS {business.naicsCodeGuess}), pulled
+              live from USAspending.gov — not stored, refreshed each time this page loads. These are companies
+              with the same industry code, not a guarantee of comparable size or fit.
+            </p>
+            {similarAwards.length === 0 ? (
+              <p className="text-sm text-zinc-500 italic">
+                No comparable award data found for this industry right now.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {similarAwards.map((award, i) => (
+                  <li key={i} className="rounded border border-white/10 bg-black/40 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-sm font-medium text-zinc-100">{award.recipientName}</span>
+                      {award.awardAmount !== null && (
+                        <span className="shrink-0 text-sm font-medium text-emerald-300">
+                          {currencyFormatter.format(award.awardAmount)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {award.awardingAgency ?? "Agency not specified"}
+                      {award.awardDate ? ` · ${award.awardDate}` : ""}
+                    </p>
+                    {award.description && (
+                      <p className="mt-1.5 text-xs text-zinc-400 capitalize">{award.description.toLowerCase()}</p>
+                    )}
+                    {award.sourceUrl && (
+                      <a
+                        href={award.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-block text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200"
+                      >
+                        View award on USAspending.gov
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-sm">
           <h2 className="mb-1 font-medium text-zinc-50">Tell us more about your business</h2>

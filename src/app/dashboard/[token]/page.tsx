@@ -1,0 +1,168 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { updateFounderInfo } from "./actions";
+import type { MatchConfidence } from "@/generated/prisma/client";
+
+// Only MEDIUM/HIGH matches are surfaced here — LOW matches are kept in the
+// database for auditability but aren't confident enough to show a founder.
+const SENDABLE_CONFIDENCE: MatchConfidence[] = ["MEDIUM", "HIGH"];
+const MAX_MATCHES_SHOWN = 3;
+
+const FOUNDER_FIELDS: Array<{
+  name:
+    | "annualRevenue"
+    | "capitalNeed"
+    | "usOwnershipPercent"
+    | "ownershipDemographics"
+    | "piPrimaryEmployer"
+    | "priorSbirHistory";
+  label: string;
+  placeholder: string;
+  type: "text" | "number";
+}> = [
+  { name: "annualRevenue", label: "Annual revenue", placeholder: "e.g. $1.2M", type: "text" },
+  { name: "capitalNeed", label: "Capital need / amount seeking", placeholder: "e.g. $500K seed extension", type: "text" },
+  { name: "usOwnershipPercent", label: "US ownership (%)", placeholder: "e.g. 100", type: "number" },
+  { name: "ownershipDemographics", label: "Ownership demographics", placeholder: "e.g. woman-owned, veteran-owned", type: "text" },
+  { name: "piPrimaryEmployer", label: "PI's primary employer", placeholder: "e.g. this company, full-time", type: "text" },
+  { name: "priorSbirHistory", label: "Prior SBIR/STTR award history", placeholder: "e.g. none, or Phase I 2023", type: "text" },
+];
+
+function confidenceBadgeClass(confidence: string): string {
+  switch (confidence) {
+    case "HIGH":
+      return "bg-emerald-100 text-emerald-800";
+    case "MEDIUM":
+      return "bg-amber-100 text-amber-800";
+    default:
+      return "bg-zinc-100 text-zinc-700";
+  }
+}
+
+export default async function DashboardPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+
+  const business = await prisma.business.findUnique({
+    where: { dashboardToken: token },
+    include: {
+      matches: {
+        where: { confidence: { in: SENDABLE_CONFIDENCE } },
+        orderBy: { score: "desc" },
+        take: MAX_MATCHES_SHOWN,
+        include: { opportunity: true, application: true },
+      },
+    },
+  });
+
+  if (!business) notFound();
+
+  const missingFields = FOUNDER_FIELDS.filter((f) => {
+    const value = business[f.name];
+    return value === null || value === undefined;
+  });
+
+  const boundUpdateFounderInfo = updateFounderInfo.bind(null, token);
+
+  return (
+    <div className="flex flex-col flex-1 bg-zinc-50 dark:bg-black">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-8">
+        <header className="mb-10">
+          <p className="text-sm font-medium text-zinc-500">Utah Governor&apos;s Office of Economic Opportunity</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+            {business.name}
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {business.matches.length > 0
+              ? `${business.matches.length} matched funding opportunit${business.matches.length === 1 ? "y" : "ies"}`
+              : "No confident matches yet"}
+          </p>
+        </header>
+
+        <section className="mb-12 flex flex-col gap-4">
+          {business.matches.length === 0 && (
+            <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+              We haven&apos;t found a confident match yet. This can change as more opportunities sync or once you
+              fill in the details below.
+            </p>
+          )}
+
+          {business.matches.map((match) => (
+            <article
+              key={match.id}
+              className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <h2 className="font-medium text-zinc-950 dark:text-zinc-50">{match.opportunity.title}</h2>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(match.confidence)}`}
+                >
+                  {match.confidence}
+                </span>
+              </div>
+              <p className="mb-3 text-xs text-zinc-500">{match.opportunity.agency ?? "Agency not specified"}</p>
+              <p className="mb-3 text-sm text-zinc-700 dark:text-zinc-300">{match.reasoning}</p>
+              {match.caveats && (
+                <p className="mb-3 rounded bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  <span className="font-medium">Before applying: </span>
+                  {match.caveats}
+                </p>
+              )}
+              {match.opportunity.applicationUrl && (
+                <a
+                  href={match.opportunity.applicationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-zinc-950 underline underline-offset-2 dark:text-zinc-50"
+                >
+                  View opportunity
+                </a>
+              )}
+              {match.application && (
+                <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+                  An SBIR/STTR draft application is ready for this match (status: {match.application.status}).
+                </p>
+              )}
+            </article>
+          ))}
+        </section>
+
+        <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="mb-1 font-medium text-zinc-950 dark:text-zinc-50">Tell us more about your business</h2>
+          {missingFields.length === 0 ? (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Thanks — we have everything we currently ask for. We&apos;ll re-check your matches as new
+              opportunities come in.
+            </p>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-zinc-500">
+                A few details aren&apos;t publicly available. Filling these in helps us refine and re-run your
+                matches.
+              </p>
+              <form action={boundUpdateFounderInfo} className="flex flex-col gap-4">
+                {missingFields.map((field) => (
+                  <label key={field.name} className="flex flex-col gap-1 text-sm">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{field.label}</span>
+                    <input
+                      type={field.type}
+                      name={field.name}
+                      placeholder={field.placeholder}
+                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-black dark:text-zinc-50"
+                      {...(field.type === "number" ? { min: 0, max: 100 } : {})}
+                    />
+                  </label>
+                ))}
+                <button
+                  type="submit"
+                  className="mt-2 self-start rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                >
+                  Save
+                </button>
+              </form>
+            </>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}

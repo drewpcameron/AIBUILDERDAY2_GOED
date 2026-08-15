@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 const STAGES = [
+  { label: "Looking up your company online", durationMs: 5000 },
   { label: "Scoring against open funding opportunities", durationMs: 6000 },
   { label: "Explaining your strongest matches", durationMs: 8000 },
   { label: "Drafting SBIR/STTR application (if eligible)", durationMs: Infinity },

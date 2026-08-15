@@ -7,6 +7,7 @@ import { prefilterOpportunities, scoreMatches } from "@/lib/matching";
 import { generateExplanation } from "@/lib/explanation";
 import { generateApplicationFields } from "@/lib/autofill";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { enrichBusiness } from "@/lib/web-enrichment";
 
 // This is public and unauthenticated, and each submission triggers several
 // real Anthropic API calls — without a limit, it's an open spigot for
@@ -43,7 +44,7 @@ export async function analyzeCompany(formData: FormData) {
     throw new Error("Please describe the company in a bit more detail");
   }
 
-  const business = await prisma.business.create({
+  let business = await prisma.business.create({
     data: {
       source: "TRY_IT_YOURSELF",
       name: name.trim(),
@@ -52,6 +53,24 @@ export async function analyzeCompany(formData: FormData) {
   });
 
   try {
+    // Look up public signals about the named company (official site, industry/NAICS
+    // guess, employee/funding signals) the same way the proactive pipeline's web
+    // enrichment step does, and fold them in alongside the founder's own typed
+    // description so matching sees more than just what they wrote — without
+    // overwriting the description itself, which stays in the founder's own words.
+    const enrichment = await enrichBusiness(name.trim(), null);
+    business = await prisma.business.update({
+      where: { id: business.id },
+      data: {
+        websiteUrl: enrichment.websiteUrl,
+        industryGuess: enrichment.industryGuess,
+        naicsCodeGuess: enrichment.naicsCodeGuess,
+        employeeCountSignal: enrichment.employeeCountSignal,
+        fundingHistorySignal: enrichment.fundingHistorySignal,
+        webEnrichedAt: new Date(),
+      },
+    });
+
     const now = new Date();
     const openOpportunities = await prisma.opportunity.findMany({
       where: { OR: [{ closesAt: null }, { closesAt: { gte: now } }] },

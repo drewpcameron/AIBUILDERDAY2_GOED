@@ -45,3 +45,27 @@ export async function updateFounderInfo(token: string, formData: FormData) {
 
   revalidatePath(`/dashboard/${token}`);
 }
+
+/**
+ * Marks a draft SBIR/STTR application as reviewed by the founder. Per
+ * plan.md ("no auto-submission — founder reviews and exports/copies it
+ * themselves"), this only flips the review flag; it never submits anything.
+ * Scoped to the token's own business so one dashboard link can't mark
+ * another business's application reviewed.
+ */
+export async function markApplicationReviewed(token: string, applicationId: string) {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: { match: { include: { business: true } } },
+  });
+  if (!application || application.match.business.dashboardToken !== token) {
+    throw new Error("Not found");
+  }
+
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { status: "REVIEWED", reviewedAt: new Date() },
+  });
+
+  revalidatePath(`/dashboard/${token}`);
+}

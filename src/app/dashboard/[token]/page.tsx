@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { updateFounderInfo } from "./actions";
+import { updateFounderInfo, markApplicationReviewed } from "./actions";
+import { APPLICATION_FIELD_LABELS, type ApplicationFields } from "@/lib/autofill";
 import type { MatchConfidence } from "@/generated/prisma/client";
 
 // Only MEDIUM/HIGH matches are surfaced here — LOW matches are kept in the
@@ -118,9 +119,48 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
                 </a>
               )}
               {match.application && (
-                <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-                  An SBIR/STTR draft application is ready for this match (status: {match.application.status}).
-                </p>
+                <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-black">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                      SBIR/STTR draft application
+                    </h3>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        match.application.status === "REVIEWED"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {match.application.status === "REVIEWED" ? "Reviewed" : "AI-drafted, unreviewed"}
+                    </span>
+                  </div>
+                  <p className="mb-4 rounded bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    Every field below was drafted by AI from available data. Verify all of it before submitting
+                    anywhere — nothing here has been sent to any agency.
+                  </p>
+                  <dl className="flex flex-col gap-3">
+                    {Object.entries(APPLICATION_FIELD_LABELS).map(([key, label]) => {
+                      const fields = match.application!.fields as unknown as ApplicationFields;
+                      const value = fields[key as keyof ApplicationFields];
+                      return (
+                        <div key={key}>
+                          <dt className="text-xs font-medium text-zinc-500">{label}</dt>
+                          <dd className="text-sm text-zinc-800 dark:text-zinc-200">{value || "—"}</dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                  {match.application.status !== "REVIEWED" && (
+                    <form action={markApplicationReviewed.bind(null, token, match.application.id)} className="mt-4">
+                      <button
+                        type="submit"
+                        className="rounded-full border border-zinc-300 px-4 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                      >
+                        Mark as reviewed
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
             </article>
           ))}

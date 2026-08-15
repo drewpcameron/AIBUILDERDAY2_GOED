@@ -71,6 +71,13 @@ model Business {
   founderEnrichedAt     DateTime?
 
   dashboardToken        String         @unique @default(cuid())
+
+  // [6] Outreach — set once the personalized match email has gone out, so
+  // re-runs of the send job don't re-email the same business. Per Scope
+  // Decision 1, the actual send target is a fixed test inbox / opt-in list,
+  // not this business's real (undiscovered) contact email.
+  outreachSentAt        DateTime?
+
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 

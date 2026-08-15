@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { analyzeCompany } from "./actions";
 import { SubmitButton } from "./submit-button";
 
@@ -6,7 +7,15 @@ export default function TryItYourselfPage() {
     <div className="relative flex flex-col flex-1 bg-zinc-950 bg-[url('/dashboard-background.jpg')] bg-cover bg-center bg-no-repeat">
       <div className="absolute inset-0 bg-zinc-950/70" aria-hidden="true" />
       <main className="relative mx-auto w-full max-w-2xl flex-1 px-6 py-16 sm:px-8">
-        <p className="text-sm font-medium text-zinc-300">Utah Governor&apos;s Office of Economic Opportunity</p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-sm font-medium text-zinc-300">Utah Governor&apos;s Office of Economic Opportunity</p>
+          <Link
+            href="/dashboard/resend"
+            className="shrink-0 rounded border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-zinc-400 hover:text-white"
+          >
+            Log back in
+          </Link>
+        </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white drop-shadow-sm">
           Try it yourself
         </h1>

@@ -25,6 +25,23 @@ export default function TryItYourselfPage() {
           draft a first-pass application, live.
         </p>
 
+        <ol className="mt-6 flex flex-col gap-2 rounded-lg border border-white/10 bg-black/30 p-4 text-xs text-zinc-300 sm:flex-row sm:items-center sm:gap-0 sm:divide-x sm:divide-white/10">
+          <li className="flex items-start gap-2 sm:flex-1 sm:px-3 sm:first:pl-0">
+            <span className="font-semibold text-white">1.</span>
+            <span>Describe your company</span>
+          </li>
+          <li className="flex items-start gap-2 sm:flex-1 sm:px-3">
+            <span className="font-semibold text-white">2.</span>
+            <span>We match &amp; draft against live opportunities</span>
+          </li>
+          <li className="flex items-start gap-2 sm:flex-1 sm:px-3 sm:last:pr-0">
+            <span className="font-semibold text-white">3.</span>
+            <span>
+              In production you&apos;d get this by email — here we skip straight to your results
+            </span>
+          </li>
+        </ol>
+
         <form
           action={analyzeCompany}
           className="mt-8 flex flex-col gap-5 rounded-lg border border-white/10 bg-zinc-950/70 p-6 backdrop-blur-sm"

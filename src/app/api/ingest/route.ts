@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorized } from "@/lib/internal-auth";
 import { prisma } from "@/lib/prisma";
 import { fetchUtahEntities } from "@/lib/sam";
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // no secret configured yet (local dev)
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {

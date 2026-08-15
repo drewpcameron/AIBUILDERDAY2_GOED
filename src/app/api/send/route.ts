@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorized } from "@/lib/internal-auth";
 import { prisma } from "@/lib/prisma";
 import { sendOutreachEmail } from "@/lib/email";
 import type { MatchConfidence } from "@/generated/prisma/client";
 
 export const maxDuration = 60;
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // no secret configured yet (local dev)
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 // Only MEDIUM/HIGH matches are surfaced to a founder — LOW matches are kept
 // for auditability (see schema comment on Match) but aren't confident

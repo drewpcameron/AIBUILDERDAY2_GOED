@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorized } from "@/lib/internal-auth";
 import { prisma } from "@/lib/prisma";
 import { prefilterOpportunities, scoreMatches } from "@/lib/matching";
 
 // One LLM call per business over a bounded candidate pool; generous ceiling
 // since this runs manually/post-enrichment, not on a tight cron cadence.
 export const maxDuration = 300;
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // no secret configured yet (local dev)
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 // One LLM call per business — keep concurrency modest like /api/enrich.
 const CONCURRENCY = 3;

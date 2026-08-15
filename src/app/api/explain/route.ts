@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorized } from "@/lib/internal-auth";
 import { prisma } from "@/lib/prisma";
 import { generateExplanation } from "@/lib/explanation";
 
 // One LLM call per match; generous ceiling since this runs manually/
 // post-match, not on a tight cron cadence.
 export const maxDuration = 300;
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // no secret configured yet (local dev)
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 const CONCURRENCY = 3;
 

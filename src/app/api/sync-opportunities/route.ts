@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorized } from "@/lib/internal-auth";
 import { prisma } from "@/lib/prisma";
 import { fetchGrantsGovOpportunities } from "@/lib/grants-gov";
 import { fetchAssistanceListings } from "@/lib/sam-assistance";
@@ -10,12 +11,6 @@ import type { OpportunitySource } from "@/generated/prisma/enums";
 // concurrency in src/lib/grants-gov.ts) are the long pole here. Vercel Hobby
 // caps execution at 60s regardless of this value; Pro/Enterprise honor it.
 export const maxDuration = 300;
-
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // no secret configured yet (local dev)
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
 
 interface SourceResult {
   source: OpportunitySource;

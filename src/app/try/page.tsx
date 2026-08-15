@@ -20,6 +20,16 @@ export default function TryItYourselfPage() {
           action={analyzeCompany}
           className="mt-8 flex flex-col gap-5 rounded-lg border border-white/10 bg-zinc-950/70 p-6 backdrop-blur-sm"
         >
+          {/* Honeypot: hidden from real users via CSS (not display:none —
+              some bots skip that), never filled by them; caught server-side
+              in analyzeCompany. */}
+          <div className="absolute -left-[9999px]" aria-hidden="true">
+            <label>
+              Website
+              <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+            </label>
+          </div>
+
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-300">Company name</span>
             <input

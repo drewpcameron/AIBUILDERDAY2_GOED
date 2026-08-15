@@ -1,10 +1,18 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { prefilterOpportunities, scoreMatches } from "@/lib/matching";
 import { generateExplanation } from "@/lib/explanation";
 import { generateApplicationFields } from "@/lib/autofill";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// This is public and unauthenticated, and each submission triggers several
+// real Anthropic API calls — without a limit, it's an open spigot for
+// running up API costs or filling the database with junk businesses.
+const RATE_LIMIT = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * Component 9 ("try it yourself"): runs a typed company description through
@@ -15,6 +23,18 @@ import { generateApplicationFields } from "@/lib/autofill";
  * is needed.
  */
 export async function analyzeCompany(formData: FormData) {
+  // Honeypot: a hidden field real users never see or fill; bots that
+  // auto-fill every input on a form trip it.
+  if (typeof formData.get("website") === "string" && formData.get("website") !== "") {
+    throw new Error("Submission rejected");
+  }
+
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`try:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS)) {
+    throw new Error("Too many submissions — please wait a few minutes and try again.");
+  }
+
   const name = formData.get("name");
   const description = formData.get("description");
 

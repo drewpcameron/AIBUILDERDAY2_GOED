@@ -1,7 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { updateFounderInfo, markApplicationReviewed } from "./actions";
-import { APPLICATION_FIELD_LABELS, type ApplicationFields } from "@/lib/autofill";
+import { updateFounderInfo } from "./actions";
 import type { MatchConfidence } from "@/generated/prisma/client";
 
 // Only MEDIUM/HIGH matches are surfaced here — LOW matches are kept in the
@@ -65,14 +65,15 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
   const boundUpdateFounderInfo = updateFounderInfo.bind(null, token);
 
   return (
-    <div className="flex flex-col flex-1 bg-zinc-50 dark:bg-black">
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-8">
+    <div className="relative flex flex-col flex-1 bg-zinc-950 bg-[url('/dashboard-background.jpg')] bg-cover bg-center bg-no-repeat">
+      <div className="absolute inset-0 bg-zinc-950/70" aria-hidden="true" />
+      <main className="relative mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-8">
         <header className="mb-10">
-          <p className="text-sm font-medium text-zinc-500">Utah Governor&apos;s Office of Economic Opportunity</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+          <p className="text-sm font-medium text-zinc-300">Utah Governor&apos;s Office of Economic Opportunity</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white drop-shadow-sm">
             {business.name}
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-300">
             {business.matches.length > 0
               ? `${business.matches.length} matched funding opportunit${business.matches.length === 1 ? "y" : "ies"}`
               : "No confident matches yet"}
@@ -81,7 +82,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
 
         <section className="mb-12 flex flex-col gap-4">
           {business.matches.length === 0 && (
-            <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+            <p className="rounded-lg border border-white/10 bg-zinc-950/70 p-4 text-sm text-zinc-300 backdrop-blur-sm">
               We haven&apos;t found a confident match yet. This can change as more opportunities sync or once you
               fill in the details below.
             </p>
@@ -90,20 +91,20 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
           {business.matches.map((match) => (
             <article
               key={match.id}
-              className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
+              className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-sm"
             >
               <div className="mb-2 flex items-start justify-between gap-3">
-                <h2 className="font-medium text-zinc-950 dark:text-zinc-50">{match.opportunity.title}</h2>
+                <h2 className="font-medium text-zinc-50">{match.opportunity.title}</h2>
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(match.confidence)}`}
                 >
                   {match.confidence}
                 </span>
               </div>
-              <p className="mb-3 text-xs text-zinc-500">{match.opportunity.agency ?? "Agency not specified"}</p>
-              <p className="mb-3 text-sm text-zinc-700 dark:text-zinc-300">{match.reasoning}</p>
+              <p className="mb-3 text-xs text-zinc-400">{match.opportunity.agency ?? "Agency not specified"}</p>
+              <p className="mb-3 text-sm text-zinc-300">{match.reasoning}</p>
               {match.caveats && (
-                <p className="mb-3 rounded bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <p className="mb-3 rounded bg-amber-950/50 p-3 text-sm text-amber-200">
                   <span className="font-medium">Before applying: </span>
                   {match.caveats}
                 </p>
@@ -113,15 +114,15 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
                   href={match.opportunity.applicationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-zinc-950 underline underline-offset-2 dark:text-zinc-50"
+                  className="text-sm font-medium text-zinc-50 underline underline-offset-2"
                 >
                   View opportunity
                 </a>
               )}
               {match.application && (
-                <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-black">
+                <div className="mt-4 rounded-lg border border-white/10 bg-black/40 p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                    <h3 className="text-sm font-medium text-zinc-50">
                       SBIR/STTR draft application
                     </h3>
                     <span
@@ -134,67 +135,52 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
                       {match.application.status === "REVIEWED" ? "Reviewed" : "AI-drafted, unreviewed"}
                     </span>
                   </div>
-                  <p className="mb-4 rounded bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                    Every field below was drafted by AI from available data. Verify all of it before submitting
-                    anywhere — nothing here has been sent to any agency.
+                  <p className="mb-4 text-sm text-zinc-300">
+                    A first-pass application was drafted from your business profile and this opportunity&apos;s
+                    text — company info, technical narrative, and funding/eligibility fields, filled in where the
+                    data is available.
                   </p>
-                  <dl className="flex flex-col gap-3">
-                    {Object.entries(APPLICATION_FIELD_LABELS).map(([key, label]) => {
-                      const fields = match.application!.fields as unknown as ApplicationFields;
-                      const value = fields[key as keyof ApplicationFields];
-                      return (
-                        <div key={key}>
-                          <dt className="text-xs font-medium text-zinc-500">{label}</dt>
-                          <dd className="text-sm text-zinc-800 dark:text-zinc-200">{value || "—"}</dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                  {match.application.status !== "REVIEWED" && (
-                    <form action={markApplicationReviewed.bind(null, token, match.application.id)} className="mt-4">
-                      <button
-                        type="submit"
-                        className="rounded-full border border-zinc-300 px-4 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                      >
-                        Mark as reviewed
-                      </button>
-                    </form>
-                  )}
+                  <Link
+                    href={`/dashboard/${token}/application/${match.application.id}`}
+                    className="inline-block rounded-full bg-zinc-50 px-4 py-1.5 text-xs font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+                  >
+                    View full application →
+                  </Link>
                 </div>
               )}
             </article>
           ))}
         </section>
 
-        <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="mb-1 font-medium text-zinc-950 dark:text-zinc-50">Tell us more about your business</h2>
+        <section className="rounded-lg border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-sm">
+          <h2 className="mb-1 font-medium text-zinc-50">Tell us more about your business</h2>
           {missingFields.length === 0 ? (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-zinc-400">
               Thanks — we have everything we currently ask for. We&apos;ll re-check your matches as new
               opportunities come in.
             </p>
           ) : (
             <>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-zinc-400">
                 A few details aren&apos;t publicly available. Filling these in helps us refine and re-run your
                 matches.
               </p>
               <form action={boundUpdateFounderInfo} className="flex flex-col gap-4">
                 {missingFields.map((field) => (
                   <label key={field.name} className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{field.label}</span>
+                    <span className="font-medium text-zinc-300">{field.label}</span>
                     <input
                       type={field.type}
                       name={field.name}
                       placeholder={field.placeholder}
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-black dark:text-zinc-50"
+                      className="rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-zinc-50 outline-none placeholder:text-zinc-500 focus:border-zinc-400"
                       {...(field.type === "number" ? { min: 0, max: 100 } : {})}
                     />
                   </label>
                 ))}
                 <button
                   type="submit"
-                  className="mt-2 self-start rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  className="mt-2 self-start rounded-full bg-zinc-50 px-5 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
                 >
                   Save
                 </button>

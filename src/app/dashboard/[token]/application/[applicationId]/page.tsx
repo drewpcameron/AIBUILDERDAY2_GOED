@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { markApplicationReviewed } from "../../actions";
 import { type ApplicationFields } from "@/lib/autofill";
+import { CopyButton } from "./copy-button";
 
 const FIELD_SECTIONS: Array<{ heading: string; fields: Array<keyof ApplicationFields> }> = [
   {
@@ -66,6 +67,19 @@ export default async function ApplicationPage({
   const fields = application.fields as unknown as ApplicationFields;
   const isReviewed = application.status === "REVIEWED";
 
+  const fullText = [
+    match.opportunity.title,
+    match.opportunity.agency ?? "",
+    "",
+    ...FIELD_SECTIONS.flatMap((section) => [
+      section.heading.toUpperCase(),
+      ...section.fields.map((key) => `${FIELD_LABELS[key]}: ${fields[key]}`),
+      "",
+    ]),
+  ]
+    .join("\n")
+    .trim();
+
   return (
     <div className="relative flex flex-col flex-1 bg-zinc-950 bg-[url('/dashboard-background.jpg')] bg-cover bg-center bg-no-repeat">
       <div className="absolute inset-0 bg-zinc-950/70" aria-hidden="true" />
@@ -99,6 +113,12 @@ export default async function ApplicationPage({
                 View official opportunity
               </a>
             )}
+            <CopyButton
+              text={fullText}
+              label="Copy all fields"
+              copiedLabel="Copied all fields ✓"
+              className="ml-auto rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
+            />
           </div>
         </header>
 
@@ -122,7 +142,15 @@ export default async function ApplicationPage({
                 const isMissing = value?.startsWith("Not yet provided by founder");
                 return (
                   <label key={key} className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-zinc-300">{FIELD_LABELS[key]}</span>
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-zinc-300">{FIELD_LABELS[key]}</span>
+                      {!isMissing && (
+                        <CopyButton
+                          text={value}
+                          className="text-xs font-medium text-zinc-400 underline underline-offset-2 hover:text-zinc-200"
+                        />
+                      )}
+                    </span>
                     {LONG_FIELDS.has(key) ? (
                       <textarea
                         readOnly

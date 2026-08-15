@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BusinessSource {
+  UTAH_REGISTRY
+  TRY_IT_YOURSELF
+}
+
+enum OpportunitySource {
+  GRANTS_GOV
+  SAM_GOV_ASSISTANCE_LISTINGS
+  SBIR_GOV
+}
+
+enum MatchConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ApplicationStatus {
+  DRAFT
+  REVIEWED
+}
+
+// A business pulled from Utah Division of Corporations filings (or typed
+// manually through the "try it yourself" entry point). Enrichment fields are
+// nullable because they're filled progressively: filing record -> web
+// enrichment -> founder-provided, per plan.md's enrichment source map.
+model Business {
+  id                    String         @id @default(cuid())
+  source                BusinessSource @default(UTAH_REGISTRY)
+
+  // [1] Ingest — from the filing record. externalId is the source system's
+  // company number (e.g. OpenCorporates company_number) used to dedupe
+  // repeated ingestion runs; null for TRY_IT_YOURSELF businesses.
+  externalId            String?
+  name                  String
+  entityType            String?
+  filingDate            DateTime?
+  address               String?
+  filingContactEmail    String?
+
+  // [2] Web Enrichment — best-effort, may be null if no public presence found
+  websiteUrl            String?
+  productDescription    String?
+  industryGuess         String?
+  naicsCodeGuess        String?
+  employeeCountSignal   String?
+  fundingHistorySignal  String?
+  webEnrichedAt         DateTime?
+
+  // [6] Founder Enrichment — self-reported only, collected on the dashboard
+  annualRevenue         String?
+  capitalNeed           String?
+  usOwnershipPercent    Int?
+  ownershipDemographics String?
+  piPrimaryEmployer     String?
+  priorSbirHistory      String?
+  founderEnrichedAt     DateTime?
+
+  dashboardToken        String         @unique @default(cuid())
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  matches               Match[]
+
+  @@unique([source, externalId])
+  @@index([dashboardToken])
+}
+
+// A funding opportunity synced from Grants.gov, SAM.gov Assistance Listings,
+// or SBIR.gov (component 1: Opportunity sync job). USAspending.gov is
+// intentionally not modeled here — it's queried live/on demand, not cached,
+// per the Data storage budget in plan.md.
+model Opportunity {
+  id               String            @id @default(cuid())
+  source           OpportunitySource
+  externalId       String // ID/number from the source system
+  title            String
+  agency           String?
+  description      String
+  eligibilityText  String?
+  fundingCategory  String?
+  applicationUrl   String?
+  opensAt          DateTime?
+  closesAt         DateTime?
+  isSbirEligible   Boolean           @default(false)
+  syncedAt         DateTime          @default(now())
+
+  matches          Match[]
+
+  @@unique([source, externalId])
+  @@index([isSbirEligible])
+}
+
+// [3][4] One scored, explained match between a business and an opportunity.
+// Low-confidence matches are still stored (for auditability / demo #7,
+// "restraint, not just reach") but the dashboard/email only surface
+// MEDIUM/HIGH per the anti-hallucination rule in plan.md.
+model Match {
+  id           String           @id @default(cuid())
+  businessId   String
+  business     Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity  Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  confidence   MatchConfidence
+  score        Float
+  reasoning    String // plain-language "why this fits" from the explanation layer
+  caveats      String?
+
+  createdAt    DateTime         @default(now())
+
+  application  Application?
+
+  @@unique([businessId, opportunityId])
+  @@index([businessId])
+}
+
+// [8] SBIR/STTR autofill draft for a business's top SBIR/STTR-eligible
+// match. Always starts as DRAFT; never auto-submitted (see Explicitly Out of
+// Scope in plan.md) — a founder must explicitly mark it REVIEWED.
+model Application {
+  id            String             @id @default(cuid())
+  matchId       String             @unique
+  match         Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  status        ApplicationStatus  @default(DRAFT)
+  fields        Json // structured SBIR/STTR field map, each value AI-drafted
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  reviewedAt    DateTime?
+}

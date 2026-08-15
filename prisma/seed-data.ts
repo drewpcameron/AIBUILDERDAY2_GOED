@@ -13,7 +13,7 @@ export const SEED_BUSINESSES = [
   {
     name: "Podium",
     entityType: "Corporation",
-    address: "3703 W 12600 S, Riverton, UT",
+    address: "1650 W Digital Dr, Lehi, UT",
   },
   {
     name: "Weave Communications",
@@ -28,7 +28,7 @@ export const SEED_BUSINESSES = [
   {
     name: "Divvy (Bill.com)",
     entityType: "Corporation",
-    address: "3011 W Executive Pkwy, Lehi, UT",
+    address: "2700 W Executive Pkwy, Lehi, UT",
   },
   {
     name: "Route",
@@ -96,9 +96,9 @@ export const SEED_BUSINESSES = [
     address: "3300 N Ashton Blvd, Lehi, UT",
   },
   {
-    name: "Podium Health",
+    name: "BambooHR",
     entityType: "LLC",
-    address: "358 S 560 W, Lindon, UT",
+    address: "335 S 560 W, Lindon, UT",
   },
   {
     name: "Recursion Pharmaceuticals",
@@ -106,14 +106,14 @@ export const SEED_BUSINESSES = [
     address: "41 S Rio Grande St, Salt Lake City, UT",
   },
   {
-    name: "Fusion IO Labs",
-    entityType: "LLC",
-    address: "2755 E Cottonwood Pkwy, Salt Lake City, UT",
+    name: "1-800 Contacts",
+    entityType: "Corporation",
+    address: "261 W Data Dr, Draper, UT",
   },
   {
-    name: "Solmetric Utah",
-    entityType: "LLC",
-    address: "150 E 200 S, Salt Lake City, UT",
+    name: "Xactware",
+    entityType: "Corporation",
+    address: "1100 W Traverse Pkwy, Lehi, UT",
   },
   {
     name: "Younique",

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Business" ADD COLUMN     "dashboardTokenCreatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

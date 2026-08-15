@@ -70,7 +70,21 @@ model Business {
   priorSbirHistory      String?
   founderEnrichedAt     DateTime?
 
+  // Self-service only — explicitly set by the founder from within their
+  // already-valid dashboard (opt-in), never filled from the public filing
+  // record. That distinction matters: plan.md's Scope Decision 1 keeps real
+  // outreach emails going to a test inbox because filingContactEmail's
+  // consent status for this purpose is unconfirmed; a founder typing their
+  // own recovery email in *is* consent, so the resend-link flow is allowed
+  // to actually email it.
+  recoveryEmail         String?
+
   dashboardToken        String         @unique @default(cuid())
+  // Tracks when the *current* token was minted, separately from the
+  // business's own createdAt — regenerating the link resets this without
+  // pretending the business record itself is new. Drives the expiry check
+  // in the dashboard route.
+  dashboardTokenCreatedAt DateTime     @default(now())
 
   // [6] Outreach — set once the personalized match email has gone out, so
   // re-runs of the send job don't re-email the same business. Per Scope

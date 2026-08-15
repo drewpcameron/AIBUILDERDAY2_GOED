@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { updateFounderInfo } from "./actions";
+import { updateFounderInfo, regenerateDashboardToken, setRecoveryEmail } from "./actions";
 import { fetchSimilarAwards } from "@/lib/usaspending";
+import { isTokenExpired, TOKEN_TTL_DAYS } from "@/lib/dashboard-token";
 import type { MatchConfidence } from "@/generated/prisma/client";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -64,6 +65,27 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
 
   if (!business) notFound();
 
+  if (isTokenExpired(business.dashboardTokenCreatedAt)) {
+    return (
+      <div className="relative flex flex-col flex-1 bg-zinc-950 bg-[url('/dashboard-background.jpg')] bg-cover bg-center bg-no-repeat">
+        <div className="absolute inset-0 bg-zinc-950/70" aria-hidden="true" />
+        <main className="relative mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-6 py-12 text-center sm:px-8">
+          <h1 className="text-xl font-semibold text-white">This link has expired</h1>
+          <p className="mt-3 text-sm text-zinc-300">
+            For your security, dashboard links stop working after {TOKEN_TTL_DAYS} days. Request a new one to get back to{" "}
+            {business.name}&apos;s matches.
+          </p>
+          <Link
+            href="/dashboard/resend"
+            className="mt-6 self-center rounded-full bg-zinc-50 px-5 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+          >
+            Request a new link
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
   // Live, on-demand only — never synced/cached (see plan.md's Data storage
   // budget: USAspending is transaction-scale data, unsuited to the local
   // Opportunity cache other sources use).
@@ -80,16 +102,27 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
     <div className="relative flex flex-col flex-1 bg-zinc-950 bg-[url('/dashboard-background.jpg')] bg-cover bg-center bg-no-repeat">
       <div className="absolute inset-0 bg-zinc-950/70" aria-hidden="true" />
       <main className="relative mx-auto w-full max-w-3xl flex-1 px-6 py-12 sm:px-8">
-        <header className="mb-10">
-          <p className="text-sm font-medium text-zinc-300">Utah Governor&apos;s Office of Economic Opportunity</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white drop-shadow-sm">
-            {business.name}
-          </h1>
-          <p className="mt-1 text-sm text-zinc-300">
-            {business.matches.length > 0
-              ? `${business.matches.length} matched funding opportunit${business.matches.length === 1 ? "y" : "ies"}`
-              : "No confident matches yet"}
-          </p>
+        <header className="mb-10 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-300">Utah Governor&apos;s Office of Economic Opportunity</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white drop-shadow-sm">
+              {business.name}
+            </h1>
+            <p className="mt-1 text-sm text-zinc-300">
+              {business.matches.length > 0
+                ? `${business.matches.length} matched funding opportunit${business.matches.length === 1 ? "y" : "ies"}`
+                : "No confident matches yet"}
+            </p>
+          </div>
+          <form action={regenerateDashboardToken.bind(null, token)}>
+            <button
+              type="submit"
+              title="Get a fresh link and invalidate this one — use this if you've shared this link somewhere you no longer trust."
+              className="shrink-0 rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
+            >
+              Regenerate link
+            </button>
+          </form>
         </header>
 
         <section className="mb-12 flex flex-col gap-4">
@@ -247,6 +280,32 @@ export default async function DashboardPage({ params }: { params: Promise<{ toke
               </form>
             </>
           )}
+        </section>
+
+        <section className="mt-8 rounded-lg border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-sm">
+          <h2 className="mb-1 font-medium text-zinc-50">Account recovery</h2>
+          <p className="mb-4 text-sm text-zinc-400">
+            This dashboard link expires after {TOKEN_TTL_DAYS} days and can&apos;t be recovered without a recovery
+            email on file. Add one so you can get a fresh link if this one expires or you lose it.
+          </p>
+          <form action={setRecoveryEmail.bind(null, token)} className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-1 min-w-[200px] flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-300">Recovery email</span>
+              <input
+                type="email"
+                name="recoveryEmail"
+                defaultValue={business.recoveryEmail ?? ""}
+                placeholder="you@company.com"
+                className="rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-zinc-50 outline-none placeholder:text-zinc-500 focus:border-zinc-400"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-full bg-zinc-50 px-5 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+            >
+              {business.recoveryEmail ? "Update" : "Save"}
+            </button>
+          </form>
         </section>
       </main>
     </div>

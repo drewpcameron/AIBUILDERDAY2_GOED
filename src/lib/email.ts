@@ -109,3 +109,39 @@ export async function sendOutreachEmail(business: Business, matches: MatchWithOp
 
   return res.ok;
 }
+
+/**
+ * Sends a fresh dashboard link to a founder's self-set recoveryEmail. Unlike
+ * sendOutreachEmail, this really does send to the address given — the
+ * founder opted in by typing it into their own already-valid dashboard, so
+ * Scope Decision 1's "don't email unconsented addresses" concern doesn't
+ * apply here the way it does to proactive outreach.
+ */
+export async function sendDashboardLinkEmail(business: Business, recoveryEmail: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  const url = dashboardUrl(business);
+  const subject = "Your funding-match dashboard link";
+  const html = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+  <p>Hi ${escapeHtml(business.name)} team,</p>
+  <p>Here's a fresh link to your funding-match dashboard. Your previous link no longer works.</p>
+  <p style="margin-top:24px;">
+    <a href="${url}" style="background:#1a4480;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px;">
+      Open your dashboard
+    </a>
+  </p>
+  <p style="font-size:12px;color:#888;margin-top:32px;">${FROM_NAME}<br />${PHYSICAL_ADDRESS}</p>
+</div>`.trim();
+  const text = `Hi ${business.name} team,\n\nHere's a fresh link to your funding-match dashboard. Your previous link no longer works.\n\n${url}\n\n--\n${FROM_NAME}\n${PHYSICAL_ADDRESS}`;
+
+  const res = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ from: `${FROM_NAME} <${FROM_ADDRESS}>`, to: [recoveryEmail], subject, html, text }),
+    cache: "no-store",
+  });
+
+  return res.ok;
+}

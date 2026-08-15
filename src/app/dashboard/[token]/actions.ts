@@ -1,6 +1,8 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 const FOUNDER_FIELDS = [
@@ -68,4 +70,47 @@ export async function markApplicationReviewed(token: string, applicationId: stri
   });
 
   revalidatePath(`/dashboard/${token}`);
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Sets a founder-provided recovery email, purely opt-in — see the schema
+ * comment on Business.recoveryEmail for why this (and not the filing
+ * record's contact email) is what the resend-link flow is allowed to
+ * actually send to.
+ */
+export async function setRecoveryEmail(token: string, formData: FormData) {
+  const business = await prisma.business.findUnique({ where: { dashboardToken: token } });
+  if (!business) throw new Error("Not found");
+
+  const email = formData.get("recoveryEmail");
+  if (typeof email !== "string" || !EMAIL_PATTERN.test(email.trim())) {
+    throw new Error("Enter a valid email address");
+  }
+
+  await prisma.business.update({ where: { id: business.id }, data: { recoveryEmail: email.trim() } });
+
+  revalidatePath(`/dashboard/${token}`);
+}
+
+/**
+ * Invalidates the current dashboard link and mints a new one, then sends
+ * the founder to the new URL. Requires the *current, still-valid* token to
+ * call — this is for "I want to rotate this out of caution" (e.g. after
+ * screen-sharing the link in a demo), not "my link expired and I lost it"
+ * (that needs the separate email-resend flow, since anyone could otherwise
+ * regenerate a link they don't actually own).
+ */
+export async function regenerateDashboardToken(token: string) {
+  const business = await prisma.business.findUnique({ where: { dashboardToken: token } });
+  if (!business) throw new Error("Not found");
+
+  const newToken = randomUUID();
+  await prisma.business.update({
+    where: { id: business.id },
+    data: { dashboardToken: newToken, dashboardTokenCreatedAt: new Date() },
+  });
+
+  redirect(`/dashboard/${newToken}`);
 }
